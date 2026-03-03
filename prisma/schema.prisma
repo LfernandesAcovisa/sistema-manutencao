@@ -1,0 +1,246 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum AppRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+  USER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_PART
+  CLOSED
+  CANCELED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ==================== MODELS ====================
+
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  cnpj      String?  @unique @db.VarChar(18)
+  address   String?  @db.Text
+  phone     String?  @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  branches Branch[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  name       String   @db.VarChar(255)
+  address    String?  @db.Text
+  phone      String?  @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  spaces       Space[]
+  tickets      Ticket[]
+  userBranches UserBranch[]
+
+  @@map("branches")
+}
+
+model Space {
+  id          String  @id @default(uuid()) @db.Uuid
+  branchId    String  @map("branch_id") @db.Uuid
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+  floor       String? @db.VarChar(50)
+
+  branch    Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  equipment Equipment[]
+
+  @@map("spaces")
+}
+
+model Team {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+
+  profiles Profile[]
+
+  @@map("teams")
+}
+
+model Profile {
+  id        String   @id @db.Uuid
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  phone     String?  @db.VarChar(20)
+  teamId    String?  @map("team_id") @db.Uuid
+  avatarUrl String?  @map("avatar_url") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  team                  Team?                   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userRoles             UserRole[]
+  userBranches          UserBranch[]
+  userCategories        UserCategory[]
+  ticketsAsRequester    Ticket[]                @relation("TicketRequester")
+  ticketsAsOperator     Ticket[]                @relation("TicketOperator")
+  statusHistoryChanges  TicketStatusHistory[]
+  attachments           TicketAttachment[]
+
+  @@map("profiles")
+}
+
+model UserRole {
+  id     String  @id @default(uuid()) @db.Uuid
+  userId String  @map("user_id") @db.Uuid
+  role   AppRole
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model UserBranch {
+  userId   String @map("user_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+
+  user   Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@map("user_branches")
+}
+
+model UserCategory {
+  userId     String @map("user_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  user     Profile         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category TicketCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([userId, categoryId])
+  @@map("user_categories")
+}
+
+model TicketCategory {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+  active      Boolean @default(true)
+
+  tickets        Ticket[]
+  userCategories UserCategory[]
+
+  @@map("ticket_categories")
+}
+
+model Equipment {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(255)
+  tag           String   @unique @db.VarChar(100)
+  location      String?  @db.Text
+  spaceId       String   @map("space_id") @db.Uuid
+  manufacturer  String?  @db.VarChar(255)
+  model         String?  @db.VarChar(255)
+  serialNumber  String?  @map("serial_number") @db.VarChar(255)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  space  Space            @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  parts  EquipmentPart[]
+  tickets Ticket[]
+
+  @@map("equipment")
+}
+
+model EquipmentPart {
+  id           String  @id @default(uuid()) @db.Uuid
+  equipmentId  String  @map("equipment_id") @db.Uuid
+  name         String  @db.VarChar(255)
+  manufacturer String? @db.VarChar(255)
+  partNumber   String? @map("part_number") @db.VarChar(100)
+  minStock     Int?    @map("min_stock")
+  notes        String? @db.Text
+  failureCount Int     @default(0) @map("failure_count")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("equipment_parts")
+}
+
+model Ticket {
+  id          String         @id @default(uuid()) @db.Uuid
+  title       String         @db.VarChar(255)
+  description String         @db.Text
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority
+  categoryId  String         @map("category_id") @db.Uuid
+  requesterId String         @map("requester_id") @db.Uuid
+  operatorId  String?        @map("operator_id") @db.Uuid
+  equipmentId String?        @map("equipment_id") @db.Uuid
+  branchId    String?        @map("branch_id") @db.Uuid
+  openedAt    DateTime       @default(now()) @map("opened_at") @db.Timestamptz()
+  startedAt   DateTime?      @map("started_at") @db.Timestamptz()
+  closedAt    DateTime?      @map("closed_at") @db.Timestamptz()
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  category     TicketCategory        @relation(fields: [categoryId], references: [id])
+  requester    Profile               @relation("TicketRequester", fields: [requesterId], references: [id])
+  operator     Profile?              @relation("TicketOperator", fields: [operatorId], references: [id])
+  equipment    Equipment?            @relation(fields: [equipmentId], references: [id])
+  branch       Branch?               @relation(fields: [branchId], references: [id])
+  statusHistory TicketStatusHistory[]
+  attachments   TicketAttachment[]
+
+  @@map("tickets")
+}
+
+model TicketStatusHistory {
+  id          String        @id @default(uuid()) @db.Uuid
+  ticketId    String        @map("ticket_id") @db.Uuid
+  oldStatus   TicketStatus? @map("old_status")
+  newStatus   TicketStatus  @map("new_status")
+  changedById String        @map("changed_by_id") @db.Uuid
+  changedAt   DateTime      @default(now()) @map("changed_at") @db.Timestamptz()
+  comment     String        @db.Text
+
+  ticket    Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy Profile @relation(fields: [changedById], references: [id])
+
+  @@map("ticket_status_history")
+}
+
+model TicketAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  fileUrl    String   @map("file_url") @db.Text
+  fileName   String   @map("file_name") @db.VarChar(255)
+  uploadedBy String   @map("uploaded_by") @db.Uuid
+  uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz()
+
+  ticket   Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploader Profile @relation(fields: [uploadedBy], references: [id])
+
+  @@map("ticket_attachments")
+}

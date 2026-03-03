@@ -1,0 +1,209 @@
+# Exemplos de Requisições - API de Manutenção
+
+## Variáveis
+@baseUrl = http://localhost:3000/api
+@token = seu_token_aqui
+
+## Health Check
+GET {{baseUrl}}/health
+
+---
+
+## 1. AUTENTICAÇÃO
+
+### Registrar Novo Usuário
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Pedro Santos",
+  "email": "pedro@example.com",
+  "password": "senha123",
+  "phone": "(11) 98888-8888",
+  "role": "USER"
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@techcorp.com",
+  "password": "senha123"
+}
+
+### Login Manager
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "maria@techcorp.com",
+  "password": "senha123"
+}
+
+### Login Operator
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "joao@techcorp.com",
+  "password": "senha123"
+}
+
+### Login User
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana@techcorp.com",
+  "password": "senha123"
+}
+
+---
+
+## 2. EMPRESAS (ADMIN apenas)
+
+### Criar Empresa
+POST {{baseUrl}}/companies
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Indústria ABC",
+  "cnpj": "98.765.432/0001-10",
+  "address": "Av. Industrial, 2000 - São Bernardo, SP",
+  "phone": "(11) 4000-0000"
+}
+
+---
+
+## 3. CHAMADOS
+
+### Criar Chamado
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Computador não liga",
+  "description": "O computador da estação de trabalho 15 não está ligando. Testei o cabo de energia e o problema persiste.",
+  "priority": "MEDIUM",
+  "categoryId": "uuid-da-categoria-aqui",
+  "equipmentId": "uuid-do-equipamento-aqui",
+  "branchId": "uuid-da-filial-aqui"
+}
+
+### Listar Todos os Chamados
+GET {{baseUrl}}/tickets
+Authorization: Bearer {{token}}
+
+### Listar Chamados Filtrados por Status
+GET {{baseUrl}}/tickets?status=OPEN
+Authorization: Bearer {{token}}
+
+### Listar Chamados por Prioridade
+GET {{baseUrl}}/tickets?priority=HIGH
+Authorization: Bearer {{token}}
+
+### Listar Chamados por Categoria
+GET {{baseUrl}}/tickets?categoryId=uuid-da-categoria
+Authorization: Bearer {{token}}
+
+### Atribuir Operador ao Chamado (ADMIN/MANAGER)
+POST {{baseUrl}}/tickets/assign-operator
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "ticketId": "uuid-do-chamado",
+  "operatorId": "uuid-do-operador"
+}
+
+### Alterar Status do Chamado
+PATCH {{baseUrl}}/tickets/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "ticketId": "uuid-do-chamado",
+  "newStatus": "IN_PROGRESS",
+  "comment": "Iniciando análise do problema. Equipamento será testado."
+}
+
+### Marcar como Aguardando Peça
+PATCH {{baseUrl}}/tickets/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "ticketId": "uuid-do-chamado",
+  "newStatus": "WAITING_PART",
+  "comment": "Compressor com defeito. Peça solicitada ao fornecedor."
+}
+
+### Encerrar Chamado (apenas solicitante)
+PATCH {{baseUrl}}/tickets/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "ticketId": "uuid-do-chamado",
+  "newStatus": "CLOSED",
+  "comment": "Problema resolvido. Equipamento funcionando perfeitamente."
+}
+
+---
+
+## 4. EXEMPLOS DE RESPOSTAS
+
+### Sucesso - Login
+{
+  "user": {
+    "id": "uuid",
+    "name": "Admin Sistema",
+    "email": "admin@techcorp.com",
+    "roles": ["ADMIN"]
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+
+### Sucesso - Ticket Criado
+{
+  "id": "uuid",
+  "title": "Ar condicionado não resfria",
+  "description": "...",
+  "status": "OPEN",
+  "priority": "HIGH",
+  "category": {
+    "id": "uuid",
+    "name": "Ar Condicionado"
+  },
+  "requester": {
+    "id": "uuid",
+    "name": "Ana Usuária",
+    "email": "ana@techcorp.com"
+  },
+  "operator": null,
+  "equipment": { ... },
+  "branch": { ... },
+  "openedAt": "2024-01-15T10:30:00.000Z",
+  "createdAt": "2024-01-15T10:30:00.000Z"
+}
+
+### Erro - Não Autorizado
+{
+  "status": "error",
+  "message": "Token não fornecido"
+}
+
+### Erro - Validação
+{
+  "status": "error",
+  "message": "Erro de validação",
+  "errors": [
+    {
+      "field": "email",
+      "message": "Email inválido"
+    }
+  ]
+}

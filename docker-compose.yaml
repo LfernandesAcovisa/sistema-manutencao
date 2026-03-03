@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: maintenance_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: maintenance
+      POSTGRES_PASSWORD: maintenance123
+      POSTGRES_DB: maintenance_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - maintenance_network
+
+  app:
+    build: .
+    container_name: maintenance_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://maintenance:maintenance123@postgres:5432/maintenance_db?schema=public
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      PORT: 3000
+    depends_on:
+      - postgres
+    networks:
+      - maintenance_network
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  postgres_data:
+
+networks:
+  maintenance_network:
+    driver: bridge
