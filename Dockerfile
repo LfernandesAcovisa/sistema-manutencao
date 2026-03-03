@@ -6,9 +6,9 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copiar arquivos de dependências
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY tsup.config.ts ./
+COPY package*.json ./ 
+COPY tsconfig.json ./ 
+COPY tsup.config.ts ./ 
 
 # Instalar todas as dependências (incluindo dev)
 RUN npm ci
@@ -30,8 +30,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Instalar dependências de produção e OpenSSL
+RUN apk update && apk add --no-cache \
+    libssl1.1 \
+    libssl-dev \
+    && rm -rf /var/cache/apk/*
+
 # Instalar apenas dependências de produção
-COPY package*.json ./
+COPY package*.json ./ 
 RUN npm ci --only=production
 
 # Copiar Prisma schema
@@ -59,4 +65,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
 
 # Iniciar aplicação
 CMD ["node", "dist/server.mjs"]
-
